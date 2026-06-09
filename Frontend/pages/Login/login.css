@@ -1,0 +1,114 @@
+body{
+    background-color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+}
+
+.login-container {
+    background-color: #edffcc;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 400px;
+    text-align: center;
+}
+
+.logo {
+    width: 100px;
+    margin-bottom: 20px;
+}
+
+h1 {
+    margin-bottom: 30px;
+    color: #74cc00;
+}
+
+.toggle-switcher {
+    display: flex;
+    justify-content: center;
+    margin: 30px;
+}
+
+#login-toggle, #signup-toggle {
+    background-color: #74cc00;
+    border: 3px solid #457a00;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 10px 20px;
+    color: #ffffff;
+    margin: 0 10px;
+}
+
+#login-toggle:hover, #signup-toggle:hover {
+    background-color: #555555;
+    border: 3px solid #74cc00;
+}
+
+#login-toggle.active, #signup-toggle.active {
+    background-color: #457a00;
+    border: 3px solid #74cc00;
+}
+
+/* Forms */
+.login-form, .signup-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.login-form label, .signup-form label {
+    align-self: flex-start;
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-family: 'Inter', sans-serif;
+}
+
+.login-form input, .signup-form input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+}
+
+#forgot-password {
+    align-self: flex-end;
+    margin-bottom: 20px;
+    color: #74cc00;
+    text-decoration: underline;
+}
+
+#forgot-password:hover {
+    color: #555555;
+    text-decoration: underline;
+}
+
+.login-form button, .signup-form button {
+    background-color: #74cc00;
+    border: 3px solid #457a00;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 10px 20px;
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+}
+
+.login-form button:hover, .signup-form button:hover {
+    background-color: #555555;
+}
+
+/* Error Message */
+.error {
+    color: red;
+    margin-top: 20px;
+    border: 3px solid red;
+    border-radius: 10px;
+    padding: 10px;
+}

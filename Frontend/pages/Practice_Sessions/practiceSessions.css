@@ -1,0 +1,360 @@
+#view-landing, #view-drill-types, #view-drill-list, #view-tutorial, #view-video-upload, #view-session-summary, #view-previous-sessions {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+}
+#view-session-summary ul {
+    list-style: disc;
+    padding-left: 20px;
+    text-align: left;
+    max-width: 400px;
+    margin: 0 auto 16px auto;
+}
+
+/* Landing Page */
+.how-it-works{
+    text-align: left;
+}
+.landing-button{
+    border: 1px solid #457a00;
+    background-color: #74cc00;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-family: 'Arial', sans-serif;
+    margin-top: 10px;
+    cursor: pointer;
+}
+.landing-button:hover{
+    background-color: #555555;
+    cursor: pointer;
+}
+
+/* Drill Type Selection */
+.drill-buttons{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+.drill-button.available{
+    border: 1px solid #457a00;
+    background-color: #74cc00;
+    color: #ffffff;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-family: 'Arial', sans-serif;
+    width: 200px;
+    cursor: pointer;
+}
+.drill-button.available:hover{
+    background-color: #555555;
+    border: 1px solid #000000;
+    cursor: pointer;
+}
+.drill-button.coming-soon{
+    border: 1px solid #000000;
+    background-color: #cccccc;
+    color: #666666;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-family: 'Arial', sans-serif;
+    width: 200px;
+    position: relative;
+}
+.drill-button.coming-soon span {
+    display: block;
+    font-size: 11px;
+    color: #ffffff;
+    background-color: #999999;
+    padding: 2px 6px;
+    border-radius: 5px;
+    margin-top: 4px;
+}
+
+/* Drill List */
+#drill-list-block{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.drill-card{
+    display: flex;
+    align-items: center;
+    background-color: #ffffff;
+    border: 1px solid #457a00;
+    border-radius: 10px;
+    padding: 10px;
+    gap: 10px;
+}
+.drill-card .available{
+    color: #74cc00;
+    font-weight: bold;
+    font-size: 14px;
+}
+.drill-card .coming-soon{
+    color: #999999;
+    font-size: 14px;
+}
+.select-button{
+    border: 1px solid #457a00;
+    background-color: #74cc00;
+    color: #ffffff;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+}
+.select-button:hover{
+    background-color: #555555;
+    border: 1px solid #000000;
+    cursor: pointer;
+}
+
+/* Drill Tutorial */
+.tutorial-content{
+    text-align: left;
+}
+
+/* Upload Drill Video */
+.upload-container{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid #457a00;
+    border-radius: 10px;
+    gap: 10px;
+    padding: 16px;
+    margin-bottom: 10px;
+    width: 100%;
+    box-sizing: border-box;
+}
+#video-list{
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.drill-action-buttons{
+    display: flex;
+    gap: 10px;
+    border: 1px solid #457a00;
+    border-radius: 10px;
+    padding: 20px;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+.drill-action-buttons .session-button{
+    padding: 10px 20px;
+    font-size: 16px;
+    margin-top: 0;
+}
+.session-button{
+    border: 1px solid #457a00;
+    background-color: #74cc00;
+    color: #ffffff;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-family: 'Arial', sans-serif;
+    margin-top: 10px;
+    cursor: pointer;
+}
+.result-row{
+    display: flex;
+    gap: 10px;
+    border-bottom: 1px solid #cccccc;
+    padding: 5px 0;
+    font-size: 15px;
+    align-items: center;
+}
+.result-check{
+    flex: 1;
+    font-weight: bold;
+}
+.result-status{
+    padding: 2px 6px;
+    border-radius: 10px;
+    color: #ffffff;
+    font-size: 12px;
+}
+.result-message{
+    flex: 2;
+    font-size: 14px;
+    color: #555555;
+}
+.status-pass{
+    background-color: #74cc00;
+}
+.status-warning{
+    background-color: #ffcc00;
+}
+.status-fail{
+    background-color: #ff4d4d;
+}
+.video-card{
+    border: 1px solid #457a00;
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    color: #333333;
+}
+.video-media-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+.video-media-row video {
+    flex: 1;
+    max-height: 800px;
+    border-radius: 8px;
+    object-fit: contain;
+    background-color: #000000;
+}
+.video-label{
+    text-align: center;
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+.video-card-header{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.video-feedback{
+    font-size: 14px;
+    color: #555555;
+    margin-top: 10px;
+}
+
+.media-column{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.media-column video, .media-column img{
+    width: 100%;
+    max-height: 800px;
+    border-radius: 8px;
+    object-fit: contain;
+    background-color: #000000;
+}
+
+/* Session Summary */
+#session-name{
+    border: 1px solid #457a00;
+    border-radius: 10px;
+    padding: 10px;
+    width: 100%;
+    text-align: left;
+}
+
+/* Previous Sessions */
+#previous-sessions-list{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.back-button {
+    border: 1px solid #457a00;
+    background-color: #74cc00;
+    color: #ffffff;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-family: 'Arial', sans-serif;
+}
+.back-button:hover {
+    background-color: #555555;
+    cursor: pointer;
+}
+.session-card{
+    border: 2px solid #457a00;
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    background-color: #f1f1f1;
+    flex-direction: column;
+    gap: 5px;
+}
+.session-card h3{
+    margin: 0 0 6px 0;
+    color: #457a00;
+}
+.session-card p{
+    margin: 5px 0;
+    font-size: 14px;
+    color: #333333;
+}
+.session-card-header{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: 5px 0;
+}
+.session-card-header:hover{
+    opacity: 0.8;
+}
+.session-toggle-button{
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: #457a00;
+    padding: 0 5px;
+    line-height: 1;
+}
+.session-card-content{
+    display: none;
+    margin-top: 10px;
+}
+.session-card-content.expanded{
+    display: block;
+}
+.delete-session-btn {
+    border: 1px solid #cc0000;
+    background-color: #ff4d4d;
+    color: #ffffff;
+    padding: 4px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+}
+.delete-session-btn:hover {
+    background-color: #cc0000;
+}
+
+/* Custom File Input */
+.custom-file-label{
+    display: inline-block;
+    border: 1px solid #457a00;
+    background-color: #74cc00;
+    color: #ffffff;
+    padding: 7px 14px;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    font-size: 14px;
+}
+.custom-file-label:hover{
+    background-color: #555555;
+    border: 1px solid #000000;
+    cursor: pointer;
+}
+.custom-file-label input[type="file"]{
+    display: none;
+}
+#file-name-display{
+    font-size: 14px;
+    color: #555555;
+    margin: 4px 0 0 0;
+}

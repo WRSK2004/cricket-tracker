@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../../assets/shared.css">
+    <link rel="stylesheet" href="homepage.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Cricket Tracker</title>
+</head>
+<body>
+    <header class="app-header">
+        <img src="../../assets/logo.png" alt="Logo" class="logo">
+        <h1>Cricket Tracker</h1>
+        <button class="login-button" id="loginButton">Account</button>
+    </header>
+    <main class="app-layout">
+        <nav class="top-nav">
+            <ul class="navigation">
+                <li><a href="homepage.html" class="active">Home</a></li>
+                <li><a href="../Practice_Sessions/practiceSessions.html">Practice Sessions</a></li>
+                <li><a href="../Health_and_Fitness/healthTracker.html">Health & Fitness</a></li>
+                <li><a href="../Help/help.html">Help</a></li>
+                <li><a href="../Settings/settings.html">Settings</a></li>
+            </ul>
+        </nav>
+
+        <section class="dashboard">
+            <p id="welcome-message" style="padding: 15px; font-size: 18px;"></p>
+            <div class="dashboard-grid">
+                <!-- Left Panel -->
+                <div class="panel">
+                    <h2 class="panel-title">Recent Activity</h2>
+                    <h3>Last Practice Session</h3>
+                    <div id="last-session">Loading...</div>
+                    <h3>Health Metrics</h3>
+                    <div id="health-metrics">Loading...</div>
+                </div>
+
+                <!-- Right Panel -->
+                <div class="panel">
+                    <h2 class="panel-title">Suggested Activities</h2>
+                    <div class="suggestion-list"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2026 Cricket Tracker. All rights reserved.</p>
+    </footer>
+
+    
+    <script type="module" src="homepage.js"></script>
+    <script type="module" src="../../utils/authentication_guard.js"></script>
+</body>
+</html>

@@ -1,0 +1,206 @@
+html, body{
+    height: 100%;
+    margin: 0;
+}
+
+body{
+    background-color: #edffcc;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Inter', sans-serif;
+}
+
+.app-header{
+    border: 3px solid #ffffff;
+    background-color: #457a00;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    margin: 10px 10px 0px 10px;
+    position: relative;
+    font-family: 'Inter', sans-serif;
+}
+
+.app-header .logo{
+    height: 80px;
+    padding: 5px;
+    border-radius: 10px;
+}
+
+.app-header h1{
+    color: #ffffff;
+    font-family: 'Arial', sans-serif;
+    text-align: center;
+    flex: 1;
+    margin: 0;
+    font-size: 35px;
+}
+
+.app-header .login-button{
+    border: 1px solid #ffffff;
+    text-decoration: none;
+    background-color: #74cc00;
+    color: #ffffff;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+}
+
+.app-header .login-button:hover{
+    background-color: #555555;
+    cursor: pointer;
+}
+
+#dropdown-account{
+    position: absolute;
+    top: 75px;
+    right: 15px;
+    background-color: #f1f1f1;
+    border: 1px solid #555555;
+    border-radius: 10px;
+    display: none;
+    flex-direction: column;
+    padding: 10px;
+    z-index: 100;
+    min-width: 180px;
+    text-align: left;
+}
+
+#dropdown-account p{
+    margin: 5px 0;
+    color: #000;
+    font-size: 14px;
+}
+
+#dropdown-account button {
+    border: 1px solid #457a00;
+    background-color: #74cc00;
+    color: #ffffff;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-family: 'Arial', sans-serif;
+    margin-top: 10px;
+    width: 100%;
+}
+
+#dropdown-account button:hover {
+    background-color: #555555;
+    cursor: pointer;
+}
+
+main{
+    background-color: #f4ffdf;
+    border: none;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    margin: 0px 10px 0px 10px;
+}
+
+.app-layout{
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+    padding: 10px 20px;
+}
+
+.top-nav{
+    border-radius: 10px;
+}
+
+.navigation{
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    background-color: #f1f1f1;
+    font-family: 'Arial', sans-serif;
+    border: 1px solid #555555;
+    display: flex;
+    flex-wrap: wrap;
+    border-radius: 10px;
+}
+
+.navigation li a{
+    display: block;
+    color: #000;
+    padding: 8px 16px;
+    text-decoration: none;
+    text-align: center;
+    border-radius: 10px;
+}
+
+.navigation li a:hover{
+    background-color: #808080;
+    color: white;
+}
+
+.navigation li a.active{
+    background-color: #457a00;
+    color: white;
+}
+
+/* Main Content */
+.dashboard{
+    flex: 1;
+    text-align: center;
+}
+
+.dashboard-grid{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: stretch;
+}
+
+.panel{
+    border: none;
+    border-radius: 14px;
+    flex: 1;
+    min-width: 200px;
+    padding: 16px;
+    background-color: #ffffff;
+    text-align: left;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.panel-title{
+    color: #457a00;
+    margin: 0 0 10px 0;
+}
+
+.suggestion-button{
+    border: 1px solid #457a00;
+    background-color: #74cc00;
+    color: #ffffff;
+    padding: 10px 16px;
+    font-size: 15px;
+    transition: background-color 0.3s ease;
+    border-radius: 14px;
+    font-family: 'Inter', sans-serif;
+    margin-top: 10px;
+    width: 100%;
+    cursor: pointer;
+}
+
+.suggestion-list{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.suggestion-button:hover{
+    background-color: #555555;
+}
+
+footer{
+    border: 3px solid #ffffff;
+    background-color: #457a00;
+    border-radius: 10px;
+    text-align: center;
+    padding: 10px;
+    margin: 10px 10px 10px 10px;
+    color: #ffffff;
+}

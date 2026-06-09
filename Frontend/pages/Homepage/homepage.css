@@ -1,0 +1,24 @@
+.activity-list{
+    margin: 0;
+    padding-left: 0;
+    list-style-type: none;
+}
+
+.activity-list li{ 
+    margin-bottom: 10px;
+}
+
+.suggestion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.suggestion-list a {
+    width: 100%;
+    box-sizing: border-box;
+    display: block;
+    text-decoration: none;
+}

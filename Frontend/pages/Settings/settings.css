@@ -1,0 +1,61 @@
+.data-button {
+    border: 1px solid #457a00;
+    background-color: #74cc00;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.data-button:hover{ 
+    background-color: #555555; 
+    cursor: pointer;
+}
+
+select{
+    width: 100%;
+    padding: 8px;
+    margin: 4px 0 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+}
+
+label{
+    display: block;
+    margin-top: 10px;
+    color: #333;
+    font-family: 'Inter', sans-serif;
+}
+
+.save-button {
+    border: 1px solid #457a00;
+    background-color: #74cc00;
+    color: #ffffff;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    margin-top: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+}
+.save-button:hover {
+    background-color: #555555;
+}
+.settings-input {
+    width: 100%;
+    padding: 8px;
+    margin: 4px 0 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    box-sizing: border-box;
+}
+.settings-divider {
+    border: none;
+    border-top: 1px solid #cccccc;
+    margin: 16px 0;
+}

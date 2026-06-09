@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="login.css">
+    <title>Login or Sign Up</title>
+</head>
+<body>
+    <div class="login-container">
+        <img src="../../assets/logo.png" class="logo" alt="Logo">
+        <h1>Login or Sign Up</h1>
+        <div class="toggle-switcher">
+            <button class="toggle active" id="login-toggle">Login</button>
+            <button class="toggle" id="signup-toggle">Sign Up</button>
+        </div>
+
+        <div class = "login-form">
+            <label for="login-email">Email:</label>
+            <input type="email" id="login-email" name="email" required>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+
+            <a href="#" id="forgot-password">Forgot Password?</a>
+
+            <button type="button" id="login-submit">Login</button>
+        </div>
+
+        <div class="signup-form" style="display: none">
+            <label for="signup-email">Email:</label>
+            <input type="email" id="signup-email" name="email" required>
+
+            <label for="new-username">Username:</label>
+            <input type="text" id="new-username" name="new-username" required>
+
+            <label for="new-password">Password:</label>
+            <input type="password" id="new-password" name="new-password" required>
+
+            <label for="confirm-password">Confirm Password:</label>
+            <input type="password" id="confirm-password" name="confirm-password" required>
+
+            <button type="button" id="signup-submit">Sign Up</button>
+        </div>
+        <p id="error-message" class="error" style="display: none"></p>
+    </div>
+    <script type="module" src="login.js"></script>
+</body>
+</html>

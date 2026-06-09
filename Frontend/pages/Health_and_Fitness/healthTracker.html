@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../../assets/shared.css">
+    <link rel="stylesheet" href="healthTracker.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Health & Fitness</title>
+</head>
+<body>
+    <header class="app-header">
+        <img src="../../assets/logo.png" alt="Logo" class="logo">
+        <h1>Cricket Tracker</h1>
+        <button class="login-button" id="loginButton">Account</button>
+    </header>
+    <main class="app-layout">
+        <nav class="top-nav">
+            <ul class="navigation">
+                <li><a href="../Homepage/homepage.html">Home</a></li>
+                <li><a href="../Practice_Sessions/practiceSessions.html">Practice Sessions</a></li>
+                <li><a href="healthTracker.html" class="active">Health & Fitness</a></li>
+                <li><a href="../Help/help.html">Help</a></li>
+                <li><a href="../Settings/settings.html">Settings</a></li>
+            </ul>
+        </nav>
+
+        <section class="dashboard health-page">
+            <div class="dashboard-grid">
+                <!-- Left Panel - Inputs -->
+                <div class="panel">
+                    <h2 class="panel-title">Health Metrics Calculator</h2>
+
+                    <!-- Section 1: Information Toggle -->
+                    <div class="information-toggle">
+                        <button class="collapsible-information-button">What are these metrics?</button>
+                        <div class="information-content" style="display:none">
+                            <h3>Body Mass Index (BMI)</h3>
+                            <p><strong>Formula:</strong> BMI = weight (kg) / (height (m))^2</p>
+                            <p><strong>Categories:</strong></p>
+                            <ul>
+                                <li>Underweight: BMI &lt; 18.5</li>
+                                <li>Normal weight: 18.5 ≤ BMI &lt; 25</li>
+                                <li>Overweight: 25 ≤ BMI &lt; 30</li>
+                                <li>Obesity: BMI ≥ 30</li>
+                            </ul>
+                            <br>
+
+                            <h3>Basal Metabolic Rate (BMR)</h3>
+                            <p><strong>Formula (Mifflin-St Jeor Equation):</strong></p>
+                            <ul>
+                                <li>For men: BMR = 10 × weight (kg) + 6.25 × height (cm) - 5 × age (years) + 5</li>
+                                <li>For women: BMR = 10 × weight (kg) + 6.25 × height (cm) - 5 × age (years) - 161</li>
+                            </ul>
+                            <br>
+
+                            <h3>Total Daily Energy Expenditure (TDEE)</h3>
+                            <p><strong>Definition:</strong> TDEE represents the total number of calories you burn in a day, taking into account your Basal Metabolic Rate (BMR) and your activity level.</p>
+                            <p><strong>Formula:</strong> TDEE = BMR × Activity Level</p>
+                            <p><strong>Activity Levels:</strong></p>
+                            <ul>
+                                <li>Sedentary (little or no exercise): TDEE = BMR × 1.2</li>
+                                <li>Lightly active (light exercise/sports 1-3 days/week): TDEE = BMR × 1.375</li>
+                                <li>Moderately active (moderate exercise/sports 3-5 days/week): TDEE = BMR × 1.55</li>
+                                <li>Very active (hard exercise/sports 6-7 days a week): TDEE = BMR × 1.725</li>
+                                <li>Extra active (very hard exercise/sports & physical job or 2x training): TDEE = BMR × 1.9</li>
+                            </ul>
+                            <br>
+
+                            <h3>Macronutrient Distribution</h3>
+                            <p><strong>General Recommendations:</strong></p>
+                            <ul>
+                                <li>Carbohydrates: 45-65% of total daily calories</li>
+                                <li>Proteins: 10-35% of total daily calories</li>
+                                <li>Fats: 20-35% of total daily calories</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Health Metrics Inputs -->
+                    <div class="inputs-section">
+                        <label for="age">Age (years):</label>
+                        <input type="number" id="age" placeholder="Enter age in years">
+
+                        <label for="gender">Gender:</label>
+                        <select id="gender">
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+
+                        <label for="height">Height (cm):</label>
+                        <input type="number" id="height" placeholder="Enter height in cm">
+
+                        <label for="weight">Weight (kg):</label>
+                        <input type="number" id="weight" placeholder="Enter weight in kg">
+
+                        <label for="activity-levels">Exercise Frequency:</label>
+                        <select id="activity-levels">
+                            <option value="sedentary">Sedentary (little or no exercise)</option>
+                            <option value="lightly active">Lightly active (light exercise/sports 1-3 days/week)</option>
+                            <option value="moderately active">Moderately active (moderate exercise/sports 3-5 days/week)</option>
+                            <option value="very active">Very active (hard exercise/sports 6-7 days a week)</option>
+                            <option value="extra active">Super active (very hard exercise/sports & physical job or 2x training)</option>
+                        </select>
+
+                        <button id="calculate-health-metrics" class="calculate-button">Calculate Health Metrics</button>
+
+                    </div>
+
+                    <!-- Section 3: Target Calories Section -->
+                    <div class="target-section">
+                        <h3>Target Calories</h3>
+                        <label for="target-weight">Target Weight (kg):</label>
+                        <input type="number" id="target-weight" placeholder="Enter target weight in kg">
+
+                        <label for="weight-per-week">Weight Change per Week (kg):</label>
+                        <select id="weight-per-week">
+                            <option value="0.25">0.25 kg/week (slow)</option>
+                            <option value="0.5">0.5 kg/week (moderate)</option>
+                            <option value="0.75">0.75 kg/week (fast)</option>
+                            <option value="1">1 kg/week (very fast)</option>
+                        </select>
+
+                        <button id="calculate-target-calories" class="suggestion-button">Calculate Target Calories</button>
+                    </div>
+
+                </div>
+
+                <!-- Right Panel - Results -->
+                <div class="panel">
+                    <h2 class="panel-title">Results</h2>
+
+                    <!-- Health Metrics Results -->
+                    <div id="health-metrics-results" class="results-container" style="display: none">
+                        <p id="bmi-result"></p>
+                        <p id="bmi-category"></p>
+                        <p id="bmr-result"></p>
+                        <p id="tdee-result"></p>
+                        <div id="macronutrient-distribution"></div>
+                    </div>
+
+                    <p id="results-placeholder" class="placeholder-text">Enter your health metrics and target calories to see results here.</p>
+                
+                    <!-- Target Calories Results -->
+                    <div id="target-calories-result" class="results-container" style="display: none">
+                        <div id="target-date-info"></div>
+                        <ul id="weekly-plan" class="collapsed"></ul>
+                        <button id="show-more-button" style="display: none" class="suggestion-button">Show More</button>
+                        <div class="chart-container">
+                            <canvas id="calorieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Panel -->
+                <div class="panel fitness-panel">
+                    <h2 class="panel-title">Fitness</h2>
+                    <p class="coming-soon-text">Exercise Plans & Fitness Tracking coming soon.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2026 Cricket Tracker. All rights reserved.</p>
+    </footer>
+    
+    
+    <script type="module" src="healthTracker.js"></script>
+    <script type="module" src="../../utils/authentication_guard.js"></script>
+</body>
+</html>

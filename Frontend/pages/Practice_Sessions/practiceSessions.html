@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../../assets/shared.css">
+    <link rel="stylesheet" href="practiceSessions.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Practice Sessions</title>
+</head>
+<body>
+    <header class="app-header">
+        <img src="../../assets/logo.png" alt="Logo" class="logo">
+        <h1>Cricket Tracker</h1>
+        <button class="login-button" id="loginButton">Account</button>
+    </header>
+    <main class="app-layout">
+        <nav class="top-nav">
+            <ul class="navigation">
+                <li><a href="../Homepage/homepage.html">Home</a></li>
+                <li><a href="practiceSessions.html" class="active">Practice Sessions</a></li>
+                <li><a href="../Health_and_Fitness/healthTracker.html">Health & Fitness</a></li>
+                <li><a href="../Help/help.html">Help</a></li>
+                <li><a href="../Settings/settings.html">Settings</a></li>
+            </ul>
+        </nav>
+
+        <section class="dashboard">
+            <div class="dashboard-grid">
+
+                <div id="view-landing">
+                    <h1>Practice Sessions</h1>
+                    <p id="description">Enhance your cricket with AI-powered feedback.</p>
+
+                    <div class="how-it-works">
+                        <h3>How it Works</h3>
+                        <ol type="1">
+                            <li>Choose the type of drill you want to practice.</li>
+                            <li>Select a specific drill from the list.</li>
+                            <li>Follow the tutorial instructions to complete the drill.</li>
+                            <li>Upload a video of your performance for AI analysis.</li>
+                            <li>Receive detailed feedback and improvement suggestions from the AI.</li>
+                            <li>Use the feedback to refine your technique and track your progress over time.</li>
+                        </ol>
+                    </div>
+
+                    <div class="landing-buttons">
+                        <button class="landing-button" id="create-session-button">Create New Session</button>
+                        <button class="landing-button" id="previous-sessions-button">View Previous Sessions</button>
+                    </div>
+                </div>
+                
+                <div id="view-drill-types" style="display:none">
+                    <button class="back-button" id="back-to-landing-button">Back</button>
+                    <h2>Select Type of Drill</h2>
+                    <div class="drill-buttons">
+                        <button class="drill-button available" id="batting-drills-button">🏏 Batting Drills</button>
+                        <button class="drill-button coming-soon" id="bowling-drills-button" disabled>🎯 Bowling Drills <span>Coming Soon</span></button>
+                        <button class="drill-button coming-soon" id="fielding-drills-button" disabled>🧤 Fielding Drills <span>Coming Soon</span></button>
+                        <button class="drill-button coming-soon" id="fitness-drills-button" disabled>💪 Fitness Drills <span>Coming Soon</span></button>
+                    </div>
+                </div>
+                
+                <div id="view-drill-list" style="display:none">
+                    <button class="back-button" id="back-to-drill-types-button">Back</button>
+                    <h2 id="drill-list-title">Drills</h2>
+                    <div id="drill-list-block"></div>
+                </div>
+                
+                <div id="view-tutorial" style="display:none">
+                    <button class="back-button" id="back-to-drill-list">Back</button>
+                    <h2 id="tutorial-title">Batting Stance - Tutorial</h2>
+                    <div class="tutorial-content">
+                        <h3>Recommended Camera Setup</h3>
+                        <ol>
+                            <li>Position your camera 2-3 metres away from you at hip height.</li>
+                            <li>Ensure your whole body is visible in the frame.</li>
+                            <li>Ensure there is good lighting - avoid too bright or too dark environments.</li>
+                            <li>For best pose detection, wear plain, fitted clothing.</li>
+                        </ol>
+                        <h3>Drill Instructions</h3>
+                        <ol type="1" id="drill-instructions"></ol>
+                    </div>
+                    <button class="session-button" id="start-drill">Start Drill</button>
+                </div>
+                
+                <div id="view-video-upload" style="display:none">
+                    <button class="back-button" id="back-to-tutorial">Back</button>
+                    <h2 id="upload-title">Batting Stance - Upload Video</h2>
+
+                    <div class="upload-container">
+                        <label for="video-upload" class="custom-file-label">
+                            Choose a Video
+                            <input type="file" id="video-upload" accept="video/*">
+                        </label>
+                        <p id="file-name-display">No file chosen</p>
+                        
+                        <button class="session-button" id="submit-video">Submit Video</button>
+                        <button class="session-button" id="remove-file-button">Remove File</button>
+                        <p class="video-count-label">Number of videos submitted: <span id="video-count">0</span></p>
+                    </div>
+
+                    <div id="video-list"></div>
+
+                    <div class="drill-action-buttons">
+                        <button class="session-button" id="add-another-drill">Add Another Drill</button>
+                        <button class="session-button" id="end-session">End Session</button>
+                    </div>
+                </div>
+                
+                <div id="view-session-summary" style="display:none">
+                    <button class="back-button" id="back-to-upload">Back</button>
+                    <h2>Session Summary</h2>
+                    <h3>Drills Completed</h3>
+                    <ul id="summary-drill-list"></ul>
+                    <label for="session-name">Session Name:</label>
+                    <input type="text" id="session-name" name="session-name" placeholder="E.g. Batting: Stance and Footwork">
+                    <button class="session-button" id="save-session-button">Save Session</button>
+                </div>
+
+                <div id="view-previous-sessions" style="display:none">
+                    <button class="back-button" id="back-to-landing-from-sessions">Back</button>
+                    <h2>Previous Practice Sessions</h2>
+                    <div id="previous-sessions-list"></div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2026 Cricket Tracker. All rights reserved.</p>
+    </footer>
+    
+    <script type="module" src="practiceSessions.js"></script>
+    <script type="module" src="../../utils/authentication_guard.js"></script>
+</body>
+</html>
