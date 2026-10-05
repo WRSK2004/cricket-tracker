@@ -23,3 +23,9 @@ ffmpeg-master-latest-win64-gpl/
 # Datasets & model runs (usually too large for GitHub)
 Backend/datasets/
 Backend/runs/
+# Downloaded model files (fetch with Backend/scripts/download_models.py)
+Backend/models/
+
+# Test/tool caches
+.pytest_cache/
+.ruff_cache/

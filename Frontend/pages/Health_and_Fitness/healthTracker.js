@@ -3,7 +3,7 @@
 // This JavaScript handles the 'Health & Fitness' page.
 // Main Functionalities:
 // - Calculate Health Metrics - sends age, gender, height, weight, and
-//   activity level to the Flask /health endpoint and the BMI, BMR, TDEE,
+//   activity level to the backend /health endpoint and the BMI, BMR, TDEE,
 //   and macronutrient distribution are returned, saved to Firestore, 
 //   and displayed to the user.
 // - Calculate Target Calories and Weekly Plan - based on the health metrics,
@@ -11,26 +11,14 @@
 //   weekly calorie plan are generated, displayed, and visualised in a chart.
 // =====================================================================
 
-// ---- API Configuration Import ----
-import { API_BASE_URL } from "../../utils/config.js";
+// ---- Authenticated API Calls ----
+import { apiFetch } from "../../utils/api.js";
 
 // ---- Firebase Imports ----
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ---- Firebase Initialisation ----
-const firebaseConfig = {
-    apiKey: "AIzaSyCWU0uF-ccoeQtUqUZNnUUikpZpWzVpbWk",
-    authDomain: "dissertation-4cc1f.firebaseapp.com",
-    projectId: "dissertation-4cc1f",
-    storageBucket: "dissertation-4cc1f.firebasestorage.app",
-    messagingSenderId: "435297202455",
-    appId: "1:435297202455:web:95eebf2e791097a1468752"
-};
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// ---- Shared Firebase Instances ----
+import { auth, db } from "../../utils/firebase.js";
 
 // ---- Global Variables/Module State ----
 let healthResult = null;
@@ -58,22 +46,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // ---- Send to the Flask /health Endpoint for Calculation ----
-        const response = await fetch(`${API_BASE_URL}/health`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                age,
-                gender,
-                height,
-                weight,
-                activity: activityLevel
-            })
-        });
-
-        healthResult = await response.json();
+        // ---- Send to the Backend /health Endpoint for Calculation ----
+        try {
+            healthResult = await apiFetch('/health', {
+                method: 'POST',
+                body: { age, gender, height, weight, activity: activityLevel }
+            });
+        } catch (error) {
+            alert(error.message);
+            return;
+        }
         displayHealthResults(healthResult);
 
         return healthResult;

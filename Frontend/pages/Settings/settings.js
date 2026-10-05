@@ -9,22 +9,11 @@
 // =====================================================================
 
 // ---- Firebase Imports ----
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ---- Firebase Initialisation ----
-const firebaseConfig = {
-    apiKey: "AIzaSyCWU0uF-ccoeQtUqUZNnUUikpZpWzVpbWk",
-    authDomain: "dissertation-4cc1f.firebaseapp.com",
-    projectId: "dissertation-4cc1f",
-    storageBucket: "dissertation-4cc1f.firebasestorage.app",
-    messagingSenderId: "435297202455",
-    appId: "1:435297202455:web:95eebf2e791097a1468752"
-};
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// ---- Shared Firebase Instances ----
+import { auth, db } from "../../utils/firebase.js";
 
 document.addEventListener('DOMContentLoaded', () => {
     // ---- Load Profile on Auth State Change ----

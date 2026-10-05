@@ -3,32 +3,22 @@
 // This handles the 'Practice Sessions' page:
 //   - View-based navigation (landing, drill types, drill list,
 //     tutorial, video upload, session summary, previous sessions)
-//   - Video submission to Flask /analyse endpoint
+//   - Video submission to the backend /analyse endpoint
 //   - Session saving and loading from Firestore
 //   - Session deletion from Firestore
 //   - Collapsible session cards in Previous Sessions view
 // ============================================================
 
-// ---- API Configuration Import ----
-import { API_BASE_URL } from "../../utils/config.js";
+// ---- Authenticated API Calls and HTML Escaping ----
+import { apiFetch } from "../../utils/api.js";
+import { escapeHtml } from "../../utils/html.js";
 
 // --- Firebase Imports ---
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, query, where, serverTimestamp, deleteDoc, doc} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { collection, addDoc, getDocs, getDoc, query, where, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// --- Firebase Initialisation ---
-const firebaseConfiguration = {
-    apiKey: "AIzaSyCWU0uF-ccoeQtUqUZNnUUikpZpWzVpbWk",
-    authDomain: "dissertation-4cc1f.firebaseapp.com",
-    projectId: "dissertation-4cc1f",
-    storageBucket: "dissertation-4cc1f.firebasestorage.app",
-    messagingSenderId: "435297202455",
-    appId: "1:435297202455:web:95eebf2e791097a1468752"
-};
-const app = initializeApp(firebaseConfiguration);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// ---- Shared Firebase Instances ----
+import { auth, db } from "../../utils/firebase.js";
 
 // --- Session State ---
 const sessionState = {
@@ -62,6 +52,86 @@ const drills = {
     fielding: [],
     fitness:  []
 };
+
+// ---- Status Classes Allowed in Result Rows ----
+const STATUS_CLASSES = ['pass', 'warning', 'fail', 'unknown'];
+const MAX_MEDIA_PATHS_PER_REQUEST = 50;
+
+// ---- Video Card Body (media + feedback), shared by the upload view and previous sessions ----
+// All stored/AI-generated text is escaped before being inserted.
+function videoCardBodyHTML(video) {
+    const resultsHTML = Object.values(video.results || {}).map(check => {
+        const status = String(check.status || 'Unknown');
+        const statusClass = STATUS_CLASSES.includes(status.toLowerCase()) ? status.toLowerCase() : 'unknown';
+        return `
+            <div class="result-row">
+                <span class="result-check">${escapeHtml(check.check)}</span>
+                <span class="result-status status-${statusClass}">${escapeHtml(status)}</span>
+                <span class="result-message">${escapeHtml(check.message)}</span>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="video-media-row">
+            <div class="media-column">
+                <p class="video-label">Anonymised Video:</p>
+                ${video.url
+                    ? `<video width="100%" controls><source src="${escapeHtml(video.url)}"></video>`
+                    : '<p>Video unavailable.</p>'}
+            </div>
+            ${video.best_frame_url ? `
+                <div class="media-column">
+                    <p class="video-label">Best Frame:</p>
+                    <img src="${escapeHtml(video.best_frame_url)}" style="width:100%; border-radius:8px; background-color:#000;">
+                </div>
+            ` : ''}
+        </div>
+        <div class="video-feedback">
+            <p style="white-space: pre-line;">${escapeHtml(video.feedback || 'No feedback available.')}</p>
+            <div class="video-results">${resultsHTML}</div>
+        </div>
+    `;
+}
+
+// ---- Private Storage Paths of a Video ----
+function mediaPaths(video) {
+    return [video.video_path, video.best_frame_path].filter(Boolean);
+}
+
+// ---- Fresh Short-Lived Links for Private Videos/Frames ----
+async function fetchMediaUrls(paths) {
+    const urls = {};
+    for (let i = 0; i < paths.length; i += MAX_MEDIA_PATHS_PER_REQUEST) {
+        const batch = paths.slice(i, i + MAX_MEDIA_PATHS_PER_REQUEST);
+        const data = await apiFetch('/media/urls', { method: 'POST', body: { paths: batch } });
+        Object.assign(urls, data.urls);
+    }
+    return urls;
+}
+
+// ---- Delete Private Videos/Frames (best effort) ----
+async function deleteMedia(paths) {
+    if (!paths.length) return;
+    try {
+        await apiFetch('/media/delete', { method: 'POST', body: { paths } });
+    } catch (error) {
+        console.error('Error deleting media:', error);
+    }
+}
+
+// ---- Prefill Batting Hand from Profile Settings ----
+async function prefillBattingHand(user) {
+    try {
+        const snapshot = await getDoc(doc(db, 'users', user.uid));
+        const battingHand = snapshot.exists() ? snapshot.data().profile?.battingHand : null;
+        if (battingHand === 'left' || battingHand === 'right') {
+            document.getElementById('batting-hand-select').value = battingHand;
+        }
+    } catch (error) {
+        console.error('Error loading batting hand:', error);
+    }
+}
 
 // ---- View Navigation ----
 function showView(viewId) {
@@ -138,6 +208,12 @@ function resetUploadView() {
 
 // ---- Event Listeners ----
 document.addEventListener('DOMContentLoaded', () => {
+
+    // ---- Batting Hand from Profile ----
+    const unsubscribeProfile = onAuthStateChanged(auth, (user) => {
+        unsubscribeProfile();
+        if (user) prefillBattingHand(user);
+    });
 
     // ---- Landing ----
     document.getElementById('create-session-button').addEventListener('click', () => {
@@ -273,6 +349,11 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('You have reached the maximum number of videos for this drill.');
             return;
         }
+        const battingHand = document.getElementById('batting-hand-select').value;
+        if (!battingHand) {
+            alert('Please select your batting hand so your stance is analysed correctly.');
+            return;
+        }
 
         const submitButton = document.getElementById('submit-video');
         submitButton.disabled = true;
@@ -280,33 +361,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const formData = new FormData();
         formData.append('video', file);
-        const user = auth.currentUser;
+        formData.append('batting_hand', battingHand);
 
         try {
-            // ---- Send Video to Flask ----
-            const response = await fetch(`${API_BASE_URL}/analyse`, {
-                method: 'POST',
-                headers: { 'X-User-Id': user ? user.uid : 'anonymous' },
-                body: formData
-            });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Failed to upload and analyse video');
-            }
-
-            const result = await response.json();
+            // ---- Send Video to the Backend for Analysis ----
+            const result = await apiFetch('/analyse', { method: 'POST', body: formData });
 
             // ---- Update Session State ----
+            // Links (url, best_frame_url) expire, so only the storage paths are saved with the session.
             sessionState.videoCount++;
             const videoId = Date.now();
-            sessionState.videos.push({
+            const video = {
                 id: videoId,
                 url: result.video_url,
                 best_frame_url: result.best_frame_url,
+                video_path: result.video_path,
+                best_frame_path: result.best_frame_path,
+                batting_hand: battingHand,
                 feedback: result.feedback,
                 results: result.results
-            });
+            };
+            sessionState.videos.push(video);
             document.getElementById('video-count').textContent = sessionState.videoCount;
 
             // ---- Render Video Card ----
@@ -318,38 +393,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <strong>Video ${sessionState.videoCount}:</strong>
                     <button class="delete-video-button session-button" data-index="${sessionState.videoCount - 1}">Delete</button>
                 </div>
-                <div class="video-media-row">
-                    <div class="media-column">
-                        <p class="video-label">Anonymised Video:</p>
-                        <video width="100%" controls crossorigin="anonymous">
-                            <source src="${result.video_url}">
-                        </video>
-                    </div>
-                    ${result.best_frame_url ? `
-                        <div class="media-column">
-                            <p class="video-label">Best Frame:</p>
-                            <img src="${result.best_frame_url}" style="width:100%; border-radius:8px; background-color:#000;">
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="video-feedback">
-                    <p>${result.feedback || 'No feedback available.'}</p>
-                    <div class="video-results">
-                        ${Object.values(result.results).map(check => `
-                            <div class="result-row">
-                                <span class="result-check">${check.check}</span>
-                                <span class="result-status status-${check.status.toLowerCase()}">${check.status}</span>
-                                <span class="result-message">${check.message}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
+                ${videoCardBodyHTML(video)}
             `;
             document.getElementById('video-list').appendChild(videoContainer);
 
             // ---- Delete Video Button ----
             videoContainer.querySelector('.delete-video-button').addEventListener('click', () => {
                 sessionState.videos = sessionState.videos.filter(v => v.id !== videoId);
+                deleteMedia(mediaPaths(video));
                 sessionState.videoCount--;
                 document.getElementById('video-count').textContent = sessionState.videoCount;
                 videoContainer.remove();
@@ -401,7 +452,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 userId: auth.currentUser.uid,
                 sessionName: sessionName,
                 drillsCompleted: sessionState.drillsCompleted.map(d => d.name),
-                videos: sessionState.videos.filter(v => v.url),
+                videos: sessionState.videos.map(v => ({
+                    video_path: v.video_path,
+                    best_frame_path: v.best_frame_path,
+                    batting_hand: v.batting_hand,
+                    feedback: v.feedback,
+                    results: v.results
+                })),
                 timestamp: serverTimestamp()
             });
 
@@ -447,6 +504,16 @@ async function loadPreviousSessions() {
                 return;
             }
 
+            // ---- Fresh Links for All Private Videos/Frames ----
+            // Older sessions saved public links (url) instead of paths; those are used as they are.
+            const allPaths = snapshot.docs.flatMap(d => (d.data().videos || []).flatMap(mediaPaths));
+            let mediaUrls = {};
+            try {
+                mediaUrls = await fetchMediaUrls(allPaths);
+            } catch (error) {
+                console.error('Error loading video links:', error);
+            }
+
             snapshot.forEach(docSnapshot => {
                 const data = docSnapshot.data();
                 const card = document.createElement('div');
@@ -462,32 +529,11 @@ async function loadPreviousSessions() {
                         <div class="video-card-header">
                             <strong>Video ${index + 1}:</strong>
                         </div>
-                        <div class="video-media-row">
-                            <div class="media-column">
-                                <p class="video-label">Anonymised Video:</p>
-                                <video width="100%" controls crossorigin="anonymous">
-                                    <source src="${video.url}">
-                                </video>
-                            </div>
-                            ${video.best_frame_url ? `
-                                <div class="media-column">
-                                    <p class="video-label">Best Frame:</p>
-                                    <img src="${video.best_frame_url}" style="width:100%; border-radius:8px; background-color:#000;">
-                                </div>
-                            ` : ''}
-                        </div>
-                        <div class="video-feedback">
-                            <p>${video.feedback || 'No feedback available.'}</p>
-                            <div class="video-results">
-                                ${Object.values(video.results || {}).map(check => `
-                                    <div class="result-row">
-                                        <span class="result-check">${check.check}</span>
-                                        <span class="result-status status-${check.status.toLowerCase()}">${check.status}</span>
-                                        <span class="result-message">${check.message}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
+                        ${videoCardBodyHTML({
+                            ...video,
+                            url: mediaUrls[video.video_path] || video.url,
+                            best_frame_url: mediaUrls[video.best_frame_path] || video.best_frame_url
+                        })}
                     </div>
                 `).join('');
 
@@ -495,10 +541,10 @@ async function loadPreviousSessions() {
                 card.innerHTML = `
                     <div class="session-card-header">
                         <div>
-                            <h3 style="margin:0; color:#457a00;">${data.sessionName}</h3>
+                            <h3 style="margin:0; color:#457a00;">${escapeHtml(data.sessionName)}</h3>
                             <p style="margin:4px 0 0 0; font-size:13px; color:#555;">
-                                <strong>Date:</strong> ${date} &nbsp;|&nbsp;
-                                <strong>Drills:</strong> ${data.drillsCompleted.join(', ')}
+                                <strong>Date:</strong> ${escapeHtml(date)} &nbsp;|&nbsp;
+                                <strong>Drills:</strong> ${escapeHtml((data.drillsCompleted || []).join(', '))}
                             </p>
                         </div>
                         <div style="display:flex; gap:8px; align-items:center;">
@@ -527,6 +573,7 @@ async function loadPreviousSessions() {
                     if (!window.confirm('Are you sure you want to delete this session? This cannot be undone.')) return;
                     try {
                         await deleteDoc(doc(db, 'practice_sessions', docSnapshot.id));
+                        deleteMedia((data.videos || []).flatMap(mediaPaths));
                         card.remove();
                         if (container.querySelectorAll('.session-card').length === 0) {
                             container.innerHTML = '<p>No previous sessions found.</p>';
@@ -540,7 +587,7 @@ async function loadPreviousSessions() {
             });
 
         } catch (error) {
-            container.innerHTML = '<p>Error loading sessions: ' + error.message + '</p>';
+            container.innerHTML = '<p>Error loading sessions: ' + escapeHtml(error.message) + '</p>';
         }
     });
 }
