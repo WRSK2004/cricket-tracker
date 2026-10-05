@@ -8,6 +8,7 @@
 # ---- Imports ----
 import numpy as np
 
+
 # ---- Angle Calculation ----
 def calculate_angle(a, b, c):
     ax, ay = a

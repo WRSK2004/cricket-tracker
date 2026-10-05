@@ -1,70 +1,142 @@
 # =======================================================================
 # pose_extractor.py
-# Named pose landmarks are extracted from a video frame using MediaPipe.
-# A dictionary of landmark names, their 2D positions and visibility score
-# is returned. stance_rules.py uses this data for biomechanical analysis.
+# Named pose landmarks are extracted from every frame of a video using the
+# MediaPipe Tasks PoseLandmarker (VIDEO mode, which tracks the person
+# between frames). stance_rules.py uses this data for biomechanical analysis.
+#
+# Each landmark is stored as:
+#   "Position"   - normalised (x, y) in the range 0-1 (x by width, y by height)
+#   "Pixel"      - (x, y) in pixels. Angles must be measured on these, because
+#                  normalised coordinates stretch one axis when the video is
+#                  not square (e.g. a 9:16 phone video).
+#   "Visibility" - MediaPipe's confidence that the landmark is visible
 # =======================================================================
 
 # ---- Imports ----
+from dataclasses import dataclass, field
+from pathlib import Path
+
 import cv2
 import mediapipe as mp
-import numpy as np
-from core.frame_selector import select_best_frame
+from mediapipe.tasks.python import BaseOptions, vision
 
-# ---- Pose Landmark Extraction ----
-def extract_landmarks(frame):
-    # MediaPipe is run on a single frame and extracts 17 named landmarks.
-    # Each landmark contains normalised (x,y) positions and a visibility score.
-    # A dictionary of landmark data is returned.
-    # If no pose is detected, None is returned.
-    
-    mp_pose = mp.solutions.pose
+# ---- Model Location (downloaded by scripts/download_models.py) ----
+MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "pose_landmarker_full.task"
 
-    with mp_pose.Pose(static_image_mode=True) as pose:
-        # ---- Run Pose Detection ----
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = pose.process(rgb)
+# ---- Landmarks Used by the Analysis (MediaPipe index -> name) ----
+LANDMARK_NAMES = {
+    0: "Nose",
+    2: "Left Eye",
+    5: "Right Eye",
+    7: "Left Ear",
+    8: "Right Ear",
+    11: "Left Shoulder",
+    12: "Right Shoulder",
+    13: "Left Elbow",
+    14: "Right Elbow",
+    15: "Left Wrist",
+    16: "Right Wrist",
+    23: "Left Hip",
+    24: "Right Hip",
+    25: "Left Knee",
+    26: "Right Knee",
+    27: "Left Ankle",
+    28: "Right Ankle",
+}
 
-        if results.pose_landmarks:
-            # ---- Extract Named Landmarks ----
-            landmarks = {
-               "Nose": results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE],
-               "Left Ear": results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_EAR],
-               "Right Ear": results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_EAR],
-               "Left Eye": results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_EYE],
-               "Right Eye": results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_EYE],
-               "Left Wrist": results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_WRIST],
-               "Right Wrist": results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_WRIST],
-               "Left Elbow": results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_ELBOW],
-               "Right Elbow": results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_ELBOW],     
-               "Left Shoulder": results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER],
-               "Right Shoulder": results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER],
-               "Left Hip": results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP],
-               "Right Hip": results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP],
-               "Left Knee": results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_KNEE],
-               "Right Knee": results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_KNEE],
-               "Left Ankle": results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_ANKLE],
-               "Right Ankle": results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_ANKLE]                                       
-            }
 
-            # ---- Normalise Landmarks ----
-            for landmark_name, landmark in landmarks.items():
-                landmarks[landmark_name] = {
-                    "Position": (landmark.x, landmark.y),
-                    "Visibility": landmark.visibility
-                }
-            return landmarks
-        else:
-            return None
+# ---- Result of Running Pose Detection on a Whole Video ----
+@dataclass
+class VideoPose:
+    fps: float
+    width: int
+    height: int
+    frames: list = field(default_factory=list)  # one named-landmark dict (or None) per frame
 
-# ---- Test Case ----        
+    @property
+    def duration(self):
+        return len(self.frames) / self.fps
+
+
+# ---- Create a PoseLandmarker ----
+def create_pose_landmarker(segmentation=False):
+    # VIDEO mode is used so that MediaPipe tracks the person across frames.
+    # Segmentation masks are only needed when drawing the anonymised silhouette.
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(f"Pose model not found at {MODEL_PATH}. Run: python scripts/download_models.py")
+    options = vision.PoseLandmarkerOptions(
+        base_options=BaseOptions(model_asset_path=str(MODEL_PATH)),
+        running_mode=vision.RunningMode.VIDEO,
+        output_segmentation_masks=segmentation,
+    )
+    return vision.PoseLandmarker.create_from_options(options)
+
+
+# ---- Convert MediaPipe Output to Named Landmarks ----
+def to_named_landmarks(pose_landmarks, width, height):
+    landmarks = {}
+    for index, name in LANDMARK_NAMES.items():
+        landmark = pose_landmarks[index]
+        landmarks[name] = {
+            "Position": (landmark.x, landmark.y),
+            "Pixel": (landmark.x * width, landmark.y * height),
+            "Visibility": landmark.visibility if landmark.visibility is not None else 0.0,
+        }
+    return landmarks
+
+
+# ---- Frame Timestamp for VIDEO Mode (must increase every frame) ----
+def frame_timestamp_ms(frame_index, fps):
+    return int(frame_index * 1000 / fps)
+
+
+# ---- Open a Video and Read its Properties ----
+def open_video(video_path):
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        raise ValueError("Could not open video.")
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if not fps or fps <= 0:
+        fps = 30.0
+    return cap, fps
+
+
+# ---- Pose Landmark Extraction for Every Frame ----
+def extract_video_landmarks(video_path):
+    # Runs pose detection on every frame of the video.
+    # Frames where no person is detected are stored as None.
+    cap, fps = open_video(video_path)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    video_pose = VideoPose(fps=fps, width=width, height=height)
+
+    try:
+        with create_pose_landmarker() as landmarker:
+            frame_index = 0
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                height, width = frame.shape[:2]
+                image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                result = landmarker.detect_for_video(image, frame_timestamp_ms(frame_index, fps))
+                if result.pose_landmarks:
+                    video_pose.frames.append(to_named_landmarks(result.pose_landmarks[0], width, height))
+                else:
+                    video_pose.frames.append(None)
+                frame_index += 1
+    finally:
+        cap.release()
+
+    # Frame size is taken from decoded frames in case the container reports it before rotation
+    video_pose.width, video_pose.height = width, height
+    return video_pose
+
+
+# ---- Local Test ----
 if __name__ == "__main__":
-    result = select_best_frame("WK.mov", 1, 2)
-    if result:
-        frame, frame_num, visibility = result
-        landmarks = extract_landmarks(frame)
-        if landmarks:
-            for name, data in landmarks.items():
-                print(f"{name}: pos = {data['Position']}, visibility = {data['Visibility']}")
-        else:
-            print("No landmarks detected.")
+    import sys
+
+    pose = extract_video_landmarks(sys.argv[1])
+    detected = sum(1 for f in pose.frames if f)
+    print(f"{len(pose.frames)} frames, {detected} with a pose, {pose.width}x{pose.height} @ {pose.fps:.1f} fps")

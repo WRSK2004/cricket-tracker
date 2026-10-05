@@ -9,20 +9,10 @@
 // =====================================================================
 
 // ---- Firebase Imports ----
-import {initializeApp} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, updateProfile} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import {signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, updateProfile} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// ---- Firebase Initialisation ----
-const firebaseConfig = {
-    apiKey: "AIzaSyCWU0uF-ccoeQtUqUZNnUUikpZpWzVpbWk",
-    authDomain: "dissertation-4cc1f.firebaseapp.com",
-    projectId: "dissertation-4cc1f",
-    storageBucket: "dissertation-4cc1f.firebasestorage.app",
-    messagingSenderId: "435297202455",
-    appId: "1:435297202455:web:95eebf2e791097a1468752"
-}
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+// ---- Shared Firebase Instances ----
+import { auth } from "../../utils/firebase.js";
 
 // ==== Helper: Show Error Message ====
 function showErrorMessage(message){

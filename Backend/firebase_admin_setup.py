@@ -1,21 +1,34 @@
 # ============================================================
 # firebase_admin_setup.py
-# Initialises Firebase Admin SDK for server-side access to 
-# Firestore (database) and Cloud Storage (file storage).
-# Imported by app.py to provide db and bucket objects.
+# Initialises the Firebase Admin SDK for server-side access to
+# Auth (token checks), Firestore (database) and Cloud Storage.
+# Initialisation happens on first use, so importing the app
+# (e.g. in tests) does not need credentials.
 # ============================================================
 
 # ---- Imports ----
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 
-# ---- Firebase Initialization ----
-if not firebase_admin._apps:
-    cred = credentials.Certificate('serviceAccountKey.json')
-    firebase_admin.initialize_app(cred, {
-        'storageBucket': 'dissertation-4cc1f.firebasestorage.app'
-    })
+from settings import get_settings
 
-# ---- Export Firestore and Storage Clients ----
-db = firestore.client()
-bucket = storage.bucket()
+
+# ---- Firebase Initialisation ----
+def get_firebase_app():
+    if not firebase_admin._apps:
+        settings = get_settings()
+        if settings.firebase_credentials:
+            cred = credentials.Certificate(settings.firebase_credentials)
+        else:
+            cred = credentials.ApplicationDefault()
+        firebase_admin.initialize_app(cred, {"storageBucket": settings.storage_bucket})
+    return firebase_admin.get_app()
+
+
+# ---- Firestore and Storage Clients ----
+def get_db():
+    return firestore.client(get_firebase_app())
+
+
+def get_bucket():
+    return storage.bucket(app=get_firebase_app())

@@ -1,247 +1,288 @@
 # =======================================================================
 # app.py
-# Flask RESTAPI server.
-# Two Endpoints exposed:
-# 
-# POST /analyse - Accepts a video file, runs the pose estimation and 
-#                 stance analysis pipeline, results are stored in Firestore and 
-#                 feedback is returned.
+# FastAPI REST API server. Run locally with:
+#     uvicorn app:app --reload --port 5000
 #
-# POST /health - Accepts user health data and returns calculated BMI,
-#                BMR, TDEE, macronutrient targets and calorie targets.
+# Endpoints (all require a signed-in user):
+# POST /analyse       - Accepts a stance video and the batting hand, runs the pose
+#                       estimation and stance analysis pipeline, stores the
+#                       anonymised results privately and returns the feedback.
+# POST /health        - Accepts user health data and returns calculated BMI,
+#                       BMR, TDEE, macronutrient targets and calorie targets.
+# POST /media/urls    - Returns short-lived links to the user's own private
+#                       videos/frames (used by "Previous Sessions").
+# POST /media/delete  - Deletes the user's own private videos/frames.
 # =======================================================================
 
 # ---- Imports ----
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from firebase_admin_setup import db, bucket
+import logging
 import os
-import tempfile
-import cv2
 import subprocess
+import tempfile
+import uuid
+from datetime import timedelta
+from typing import Literal
 
-from core.frame_selector import select_best_frame
-from core.pose_extractor import extract_landmarks
-from core.stance_rules import analyse_stance
-from core.anonymise import anonymise_video, anonymise_frame
+import cv2
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from firebase_admin import firestore
+from pydantic import BaseModel, Field
+
+from auth import get_current_user
+from core.anonymise import anonymise_video
 from core.feedback import generate_feedback
+from core.frame_selector import VideoTooShortError, select_best_frame
+from core.health_metrics import calculate_health_metrics
+from core.pose_extractor import extract_video_landmarks
+from core.stance_rules import analyse_stance
+from firebase_admin_setup import get_bucket, get_db
+from settings import get_settings
 
-# ---- Flask App Initialization ----
-app = Flask(__name__)
-CORS(app)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# ---- ENDPOINT: /analyse ----
-@app.route('/analyse', methods=['POST'])
-def analyse():
-    # A video file undergos the following pipeline:
-    # 1: Convert to MP4 with H.264 Codec for Compatibility
-    # 2: Select Best Frame for Pose Analysis
-    # 3: Extract Pose Landmarks
-    # 4: Analyse Stance and Generate Feedback
-    # 5: Anonymise Best Frame and Upload to Firebase Storage
-    # 6: Anonymise Video and Upload to Firebase Storage
-    # 7: Re-encode Anonymised Video to Ensure Compatibility
-    # 8: Upload Anonymised Video to Firebase Storage and Serialise Results
-    # 9: Store Analysis Results in Firestore
-    # 10: Return Feedback and URLs in Response
-    # If any step fails, an error message is returned. Temporary files are cleaned up after
+# ---- Analysis Window (seconds into the video used to pick the best frame) ----
+BEST_FRAME_WINDOW = (1, 2)
+UPLOAD_CHUNK_BYTES = 1024 * 1024
+FFMPEG_TIMEOUT_SECONDS = 120
+MAX_MEDIA_PATHS = 50
 
-    # ---- Validate Request ----
-    if 'video' not in request.files:
-        return jsonify({"error": "No video file provided"}), 400
+# ---- FastAPI App Initialisation ----
+app = FastAPI(title="Cricket Tracker API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(get_settings().allowed_origins),
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
-    video_file = request.files['video']
-    if video_file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
 
-    # ---- Save Uploaded Video to Temporary File ----
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_input_video:
-        video_file.save(temp_input_video.name)
-        temp_input_video_path = temp_input_video.name
+# ---- Error Responses ----
+# Errors are returned as {"error": "<message>"} so the frontend can show the message.
+# Unexpected errors are logged in full but only a generic message is sent to the user.
+@app.exception_handler(HTTPException)
+async def http_error_handler(request: Request, exc: HTTPException):
+    return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_output_video:
-        temp_output_video_path = temp_output_video.name
 
-    user_id = request.headers.get('X-User-ID', 'anonymous')
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    problems = "; ".join(f"{'.'.join(str(p) for p in e['loc'][1:])}: {e['msg']}" for e in exc.errors())
+    return JSONResponse({"error": f"Invalid input - {problems}"}, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
 
-    temp_frame_path = None
-    temp_converted_video_path = None
-    temp_anonymised_video_path = None
 
+@app.exception_handler(Exception)
+async def unexpected_error_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s", request.url.path)
+    return JSONResponse({"error": "Something went wrong. Please try again."}, status_code=500)
+
+
+# ==== HELPERS ====
+
+# ---- Save Upload to a Temporary File (with size limit) ----
+def save_upload(upload: UploadFile, destination: str, max_bytes: int):
+    written = 0
+    with open(destination, "wb") as out:
+        while chunk := upload.file.read(UPLOAD_CHUNK_BYTES):
+            written += len(chunk)
+            if written > max_bytes:
+                raise HTTPException(
+                    status.HTTP_413_CONTENT_TOO_LARGE,
+                    f"Video is too large. The maximum size is {max_bytes // (1024 * 1024)} MB.",
+                )
+            out.write(chunk)
+
+
+# ---- Run FFmpeg ----
+def run_ffmpeg(args):
+    command = [get_settings().ffmpeg_path, "-y", "-loglevel", "error", *args]
     try:
-        # ---- 1: Convert to MP4 with H.264 Codec for Compatibility ----
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_converted_video:
-            temp_converted_video_path = temp_converted_video.name
-            subprocess.run([
-                "ffmpeg", "-y",
-                "-i", temp_input_video_path,
-                "-vcodec", "libx264",
-                "-pix_fmt", "yuv420p",
-                "-acodec", "aac",
-                "-movflags", "+faststart",
-                temp_converted_video_path
-            ], check=True)
+        subprocess.run(command, check=True, capture_output=True, timeout=FFMPEG_TIMEOUT_SECONDS)
+    except subprocess.CalledProcessError as e:
+        logger.error("FFmpeg failed: %s", e.stderr.decode(errors="replace"))
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Could not read this video. Please try a different file."
+        ) from None
 
-        # ---- 2: Select Best Frame for Pose Analysis ----
-        best_frame = select_best_frame(temp_converted_video_path, 1, 2)
-        
-        if best_frame is None:
-            return jsonify({"error": "Could not process video frames"}), 400
-        
-        best_frame, frame_num, visibility = best_frame
+
+# ---- Upload a File to Private Storage ----
+def upload_private(local_path, storage_path, content_type):
+    blob = get_bucket().blob(storage_path)
+    blob.upload_from_filename(local_path, content_type=content_type)
+
+
+# ---- Short-Lived Link to a Private File ----
+def signed_url(storage_path):
+    blob = get_bucket().blob(storage_path)
+    return blob.generate_signed_url(
+        version="v4", expiration=timedelta(minutes=get_settings().signed_url_minutes), method="GET"
+    )
+
+
+# ---- Storage Paths Belonging to a User ----
+def user_media_prefix(uid):
+    return f"users/{uid}/"
+
+
+def check_owned_paths(paths, uid):
+    prefix = user_media_prefix(uid)
+    for path in paths:
+        if not path.startswith(prefix) or ".." in path:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "You can only access your own files.")
+
+
+# ==== ENDPOINT: /analyse ====
+@app.post("/analyse")
+def analyse(
+    video: UploadFile = File(...),
+    batting_hand: Literal["left", "right"] = Form(...),
+    uid: str = Depends(get_current_user),
+):
+    # A video file undergoes the following pipeline:
+    # 1: Save the upload (with a size limit)
+    # 2: Convert to MP4 with H.264 (also applies phone rotation and limits resolution)
+    # 3: Extract pose landmarks from every frame
+    # 4: Select the best frame within the analysis window
+    # 5: Analyse the stance and generate feedback
+    # 6: Render the anonymised video and best frame
+    # 7: Re-encode the anonymised video for browser playback
+    # 8: Upload both to private storage
+    # 9: Store the analysis results in Firestore
+    # 10: Return feedback, results and short-lived links
+    # Temporary files are always cleaned up.
+    settings = get_settings()
+    if not (video.content_type or "").startswith("video/"):
+        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Please upload a video file.")
+
+    with tempfile.TemporaryDirectory() as work_dir:
+        input_path = os.path.join(work_dir, "input")
+        converted_path = os.path.join(work_dir, "converted.mp4")
+        anonymised_raw_path = os.path.join(work_dir, "anonymised_raw.mp4")
+        anonymised_path = os.path.join(work_dir, "anonymised.mp4")
+        frame_path = os.path.join(work_dir, "best_frame.jpg")
+
+        # ---- 1: Save Upload ----
+        save_upload(video, input_path, settings.max_upload_mb * 1024 * 1024)
+
+        # ---- 2: Convert (H.264, no audio, longest side at most 1280px) ----
+        run_ffmpeg([
+            "-i", input_path,
+            "-vf", "scale='min(1280,iw)':'min(1280,ih)':force_original_aspect_ratio=decrease,"
+                   "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+            "-vcodec", "libx264", "-pix_fmt", "yuv420p", "-an",
+            converted_path,
+        ])
 
         # ---- 3: Extract Pose Landmarks ----
-        landmarks = extract_landmarks(best_frame)
-        if landmarks is None:
-            return jsonify({"error": "Could not extract pose landmarks"}), 400
-        
-        # ---- 4: Analyse Stance and Generate Feedback ----
-        rule_results = analyse_stance(landmarks)
+        video_pose = extract_video_landmarks(converted_path)
+
+        # ---- 4: Select Best Frame ----
+        try:
+            best = select_best_frame(video_pose, *BEST_FRAME_WINDOW)
+        except VideoTooShortError:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Video is too short. Please record at least {BEST_FRAME_WINDOW[1] + 1} seconds.",
+            ) from None
+        if best is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "We couldn't find a person in the video. Make sure your whole body is in the frame.",
+            )
+        frame_index, landmarks, visibility = best
+
+        # ---- 5: Analyse Stance and Generate Feedback ----
+        rule_results = analyse_stance(landmarks, batting_hand)
         feedback = generate_feedback(rule_results)
 
-        # ---- 5: Anonymise Best Frame and Upload to Firebase Storage ----
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_frame:
-            temp_frame_path = temp_frame.name
+        # ---- 6: Render Anonymised Video and Best Frame ----
+        best_frame_image = anonymise_video(converted_path, anonymised_raw_path, rule_results, batting_hand, frame_index)
 
-        anonymised_best_frame = anonymise_frame(best_frame, rule_results)
-        cv2.imwrite(temp_frame_path, anonymised_best_frame)
+        # ---- 7: Re-encode Anonymised Video for Browser Playback ----
+        run_ffmpeg([
+            "-i", anonymised_raw_path,
+            "-vcodec", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+            anonymised_path,
+        ])
 
-        frame_blob = bucket.blob(f"best_frames/{user_id}/{frame_num}.jpg")
-        frame_blob.upload_from_filename(temp_frame_path)
-        frame_blob.make_public()
-        best_frame_url = frame_blob.public_url
-        
-        # ---- 6: Anonymise Video and Upload to Firebase Storage ----
-        anonymise_video(temp_converted_video_path, temp_output_video_path, rule_results)
-        
-        # ---- 7: Re-encode Anonymised Video to Ensure Compatibility ----
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_anonymised_video:
-            temp_anonymised_video_path = temp_anonymised_video.name
-            
-        subprocess.run([
-            "ffmpeg", "-y",
-            "-i", temp_output_video_path,
-            "-vcodec", "libx264",
-            "-pix_fmt", "yuv420p",
-            "-movflags", "+faststart",
-            temp_anonymised_video_path
-        ], check=True)
+        # ---- 8: Upload to Private Storage ----
+        analysis_id = uuid.uuid4().hex
+        base_path = f"{user_media_prefix(uid)}analyses/{analysis_id}"
+        video_path = f"{base_path}/video.mp4"
+        upload_private(anonymised_path, video_path, "video/mp4")
 
-        # ---- 8: Upload Anonymised Video to Firebase Storage and Serialise Results ----
-        blob = bucket.blob(f"anonymised/{user_id}/{frame_num}.mp4")
-        blob.upload_from_filename(temp_anonymised_video_path)
-        blob.make_public()
-        video_url = blob.public_url
+        best_frame_path = None
+        if best_frame_image is not None:
+            cv2.imwrite(frame_path, best_frame_image)
+            best_frame_path = f"{base_path}/best_frame.jpg"
+            upload_private(frame_path, best_frame_path, "image/jpeg")
 
-        serialised_results = {
-            k: {key: val for key, val in v.items() if key != "colour"}
-            for k, v in rule_results.items()
-        }
-
-        # ---- 9: Store Analysis Results in Firestore ----
-        doc_ref = db.collection('analyses').document()
-        doc_ref.set({
-            'user_id': user_id,
-            'video_url': video_url,
-            'frame_number': frame_num,
-            'visibility': float(visibility),
-            'rule_results': serialised_results,
-            'feedback': feedback
-        })
-        
-        # ---- 10: Return Feedback and URLs in Response ----
-        return jsonify({
-            "feedback": feedback,
-            "results": serialised_results,
-            "video_url": video_url,
-            "best_frame_url": best_frame_url,
-            "frame_number": frame_num,
-            "visibility": float(visibility)
-        }), 200
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-    finally:
-        # ---- Clean Up Temporary Files ----
-        if os.path.exists(temp_input_video_path):
-            os.remove(temp_input_video_path)
-        if os.path.exists(temp_output_video_path):
-            os.remove(temp_output_video_path)
-        if temp_frame_path and os.path.exists(temp_frame_path):
-            os.remove(temp_frame_path)
-        if temp_converted_video_path and os.path.exists(temp_converted_video_path):
-            os.remove(temp_converted_video_path)
-        if temp_anonymised_video_path and os.path.exists(temp_anonymised_video_path):
-            os.remove(temp_anonymised_video_path)
-
-# --- ENDPOINT: /health ----
-@app.route('/health', methods=['POST'])
-def health():
-    # The user's age, gender, height(cm), weight(kg) and activitiy level are taken
-    # and the BMI, BMR, TDEE, macronutrients and calorie targets are calculated and returned. 
-    # The Mifflin-St Jeor equation is used for calculating BMR.  
-
-    # ---- Validate Request Data ----
-    data = request.get_json()
-    activity = data.get('activity')
-    age = data.get('age')
-    height = data.get('height')
-    gender = data.get('gender')
-    weight = data.get('weight')
-
-    if not all([activity, age, height, gender, weight]):
-        return jsonify({"error": "Missing required fields"}), 400
-
-    if age == 0:
-        return jsonify({"error": "Age cannot be zero"}), 400
-    if height == 0:
-        return jsonify({"error": "Height cannot be zero"}), 400
-    if gender not in ['male', 'female']:
-        return jsonify({"error": "Invalid gender value. Must be 'male' or 'female'."}), 400
-    if weight == 0:
-        return jsonify({"error": "Weight cannot be zero"}), 400
-
-    # ---- Calculate BMI, BMR, TDEE, Macronutrients, and Calorie Targets ----
-    BMI = weight / ((height / 100) ** 2)
-    
-    if gender == 'male':
-        BMR = 10 * weight + 6.25 * height - 5 * age + 5
-    elif gender == 'female':
-        BMR = 10 * weight + 6.25 * height - 5 * age - 161
-    else:
-        return jsonify({"error": "Invalid gender value. Must be 'male' or 'female'."}), 400
-
-    activity_factors = {
-        "sedentary": 1.2,
-        "lightly active": 1.375,
-        "moderately active": 1.55,
-        "very active": 1.725,
-        "extra active": 1.9
-    }
-    activity_factor = activity_factors.get(activity, 1.2)
-
-    TDEE = BMR * activity_factor
-    
-    macronutrients = {
-        "protein": round(0.3 * TDEE / 4, 2),
-        "carbohydrates": round(0.5 * TDEE / 4, 2),
-        "fats": round(0.2 * TDEE / 9, 2)
+    serialised_results = {
+        name: {key: val for key, val in result.items() if key != "colour"} for name, result in rule_results.items()
     }
 
-    maintenance_calories = round(TDEE, 2)
-    weight_loss_calories = round(TDEE - 500, 2)
-    weight_gain_calories = round(TDEE + 500, 2)
-
-    return jsonify({
-        "BMI": round(BMI, 2),
-        "BMR": round(BMR, 2),
-        "TDEE": round(TDEE, 2),
-        "macronutrients": macronutrients,
-        "maintenance_calories": maintenance_calories,
-        "weight_loss_calories": weight_loss_calories,
-        "weight_gain_calories": weight_gain_calories
+    # ---- 9: Store Analysis Results in Firestore ----
+    get_db().collection("analyses").document(analysis_id).set({
+        "user_id": uid,
+        "drill": "batting-stance",
+        "batting_hand": batting_hand,
+        "video_path": video_path,
+        "best_frame_path": best_frame_path,
+        "frame_number": frame_index,
+        "visibility": visibility,
+        "rule_results": serialised_results,
+        "feedback": feedback,
+        "created_at": firestore.SERVER_TIMESTAMP,
     })
 
-# ---- Run Flask App ----
-if __name__ == '__main__':
-    app.run(debug=True)
+    # ---- 10: Return Feedback and Links ----
+    return {
+        "analysis_id": analysis_id,
+        "feedback": feedback,
+        "results": serialised_results,
+        "video_path": video_path,
+        "best_frame_path": best_frame_path,
+        "video_url": signed_url(video_path),
+        "best_frame_url": signed_url(best_frame_path) if best_frame_path else None,
+        "frame_number": frame_index,
+        "visibility": visibility,
+    }
+
+
+# ==== ENDPOINT: /health ====
+class HealthInput(BaseModel):
+    age: int = Field(ge=5, le=100)
+    gender: Literal["male", "female"]
+    height: float = Field(ge=100, le=250, description="Height in cm")
+    weight: float = Field(ge=20, le=300, description="Weight in kg")
+    activity: Literal["sedentary", "lightly active", "moderately active", "very active", "extra active"]
+
+
+@app.post("/health")
+def health(data: HealthInput, uid: str = Depends(get_current_user)):
+    return calculate_health_metrics(data.age, data.gender, data.height, data.weight, data.activity)
+
+
+# ==== ENDPOINTS: /media ====
+class MediaPaths(BaseModel):
+    paths: list[str] = Field(max_length=MAX_MEDIA_PATHS)
+
+
+@app.post("/media/urls")
+def media_urls(body: MediaPaths, uid: str = Depends(get_current_user)):
+    check_owned_paths(body.paths, uid)
+    return {"urls": {path: signed_url(path) for path in body.paths}}
+
+
+@app.post("/media/delete")
+def media_delete(body: MediaPaths, uid: str = Depends(get_current_user)):
+    check_owned_paths(body.paths, uid)
+    bucket = get_bucket()
+    for path in body.paths:
+        blob = bucket.blob(path)
+        if blob.exists():
+            blob.delete()
+    return {"deleted": len(body.paths)}
